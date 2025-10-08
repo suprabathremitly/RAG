@@ -1,207 +1,92 @@
-# 🤖 AI-Powered Knowledge Base Search & Enrichment
+# AI-Powered Knowledge Base with RAG
 
-A production-ready RAG (Retrieval-Augmented Generation) system that intelligently searches your documents, assesses answer completeness, and automatically enriches knowledge from trusted external sources.
+[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-green.svg)](https://fastapi.tiangolo.com/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.1.0-orange.svg)](CHANGELOG_V2.1.md)
 
-![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-green.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-
-> 📚 **New to the project?** Check out [INDEX.md](INDEX.md) for a complete documentation guide!
-> 🚀 **Want to get started quickly?** Jump to [QUICKSTART.md](QUICKSTART.md) for a 5-minute setup!
-
-## 🌟 Key Features
-
-### Core Functionality
-- 📄 **Multi-Format Document Support** - Upload PDF, TXT, and DOCX files
-- 🔍 **Semantic Search** - Vector-based similarity search using ChromaDB
-- 🤖 **AI-Generated Answers** - GPT-4 powered responses with source attribution
-- 📊 **Confidence Scoring** - Self-assessing AI with 0.0-1.0 confidence scale
-- ✅ **Completeness Detection** - Binary flag + detailed missing information list
-
-### Advanced Features
-- 🌐 **Auto-Enrichment** - Automatically fetches from Wikipedia, arXiv, PubMed when needed
-- 📚 **Source Attribution** - Tracks both uploaded documents and external sources
-- 🎯 **Relevance Filtering** - LLM filters irrelevant documents gracefully
-- ⭐ **Rating System** - 1-5 star feedback with analytics
-- 🎨 **Modern Dark UI** - Sleek, responsive interface with glassmorphism effects
-
-### Production-Ready
-- 🔒 **Error Handling** - Graceful handling of edge cases
-- ✅ **Comprehensive Tests** - Unit and integration tests
-- 📖 **Full Documentation** - 8 detailed documentation files
-- 🚀 **Easy Deployment** - Docker support + deployment guides
+A production-ready Retrieval-Augmented Generation (RAG) system that combines document search with AI-powered question answering. Features intelligent auto-enrichment from trusted external sources, session-based conversations, and a modern chat interface.
 
 ---
 
-## 🏗️ Architecture & Design Decisions
+## Table of Contents
 
-### 1. **RAG Pipeline Architecture**
-
-```
-User Query → Vector Search → LLM Generation → Completeness Check → Auto-Enrichment (if needed) → Response
-```
-
-**Design Decision:** Modular service-based architecture
-- **Why:** Separation of concerns, easier testing, maintainability
-- **Trade-off:** Slightly more complex than monolithic, but worth it for scalability
-
-### 2. **Vector Database: ChromaDB**
-
-**Why ChromaDB:**
-- ✅ Lightweight, embedded database (no separate server needed)
-- ✅ Persistent storage with simple API
-- ✅ Built-in distance metrics for similarity search
-- ✅ Perfect for prototypes and small-to-medium deployments
-
-**Trade-off:** For production at scale (millions of documents), consider Pinecone or Weaviate
-
-### 3. **Embedding Model: OpenAI text-embedding-3-small**
-
-**Why:**
-- ✅ High quality embeddings (1536 dimensions)
-- ✅ Cost-effective ($0.02 per 1M tokens)
-- ✅ Fast inference
-- ✅ Consistent with GPT-4 ecosystem
-
-**Trade-off:** Requires OpenAI API (not fully self-hosted). Alternative: sentence-transformers for local deployment
-
-### 4. **LLM: GPT-4**
-
-**Why GPT-4:**
-- ✅ Superior reasoning for completeness assessment
-- ✅ Better at following structured output instructions
-- ✅ Excellent at identifying missing information
-- ✅ More reliable than GPT-3.5 for complex tasks
-
-**Trade-off:** Higher cost ($0.03/1K tokens) vs GPT-3.5 ($0.002/1K tokens). For cost optimization, use GPT-3.5-turbo for simple queries.
-
-### 5. **Structured JSON Output**
-
-**Design Decision:** Pydantic models with strict validation
-```python
-class SearchResponse(BaseModel):
-    answer: str
-    confidence: float = Field(ge=0.0, le=1.0)
-    is_complete: bool
-    missing_info: List[str]
-    sources: List[SourceReference]
-```
-
-**Why:**
-- ✅ Type safety and validation
-- ✅ Self-documenting API
-- ✅ Easy to extend
-- ✅ Prevents malformed responses
-
-### 6. **Auto-Enrichment Strategy**
-
-**Design Decision:** Automatic enrichment only when `confidence < 0.7` or `is_complete = False`
-
-**Why:**
-- ✅ Reduces unnecessary API calls
-- ✅ Faster responses when documents are sufficient
-- ✅ Cost-effective
-- ✅ Better user experience (no waiting for unneeded enrichment)
-
-**Trusted Sources Priority:**
-1. **Wikipedia** (Priority 1) - General knowledge
-2. **arXiv** (Priority 2) - Academic papers
-3. **PubMed** (Priority 3) - Medical research
-4. **Web Search** (Priority 4) - Fallback
-
-### 7. **Frontend: Vanilla JavaScript**
-
-**Why not React/Vue:**
-- ✅ Zero build step - instant development
-- ✅ No dependencies - faster load times
-- ✅ Easier for others to understand and modify
-- ✅ Perfect for MVP within 24-hour constraint
-
-**Trade-off:** For complex UIs, React would be better. Current approach is ideal for this scope.
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [API Reference](#api-reference)
+- [Development](#development)
+- [Deployment](#deployment)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## ⚖️ Trade-offs Made Due to 24-Hour Constraint
+## Overview
 
-### 1. **Authentication & Authorization**
-- ❌ **Not Implemented:** User accounts, multi-tenancy, document permissions
-- ✅ **Current:** Single-user system
-- 🔮 **Future:** Add OAuth2, JWT tokens, role-based access control
+This AI Knowledge Base enables you to:
 
-### 2. **Advanced Caching**
-- ❌ **Not Implemented:** Redis caching for frequent queries
-- ✅ **Current:** In-memory caching in ChromaDB
-- 🔮 **Future:** Add Redis for distributed caching
+- **Upload documents** (PDF, TXT, DOCX) and build a searchable knowledge base
+- **Ask questions** in natural language and receive AI-generated answers
+- **Automatic enrichment** from Wikipedia, arXiv, and PubMed when your documents lack information
+- **Session management** for organizing conversations
+- **Multi-document upload** for efficient batch processing
+- **Source attribution** with confidence scoring for transparency
 
-### 3. **Async Document Processing**
-- ❌ **Not Implemented:** Background job queue (Celery/RQ)
-- ✅ **Current:** Synchronous upload processing
-- 🔮 **Future:** Add Celery for large document batches
+### Technology Stack
 
-### 4. **Advanced Analytics**
-- ❌ **Not Implemented:** Dashboard, query analytics, A/B testing
-- ✅ **Current:** Basic rating statistics
-- 🔮 **Future:** Add analytics dashboard with charts
-
-### 5. **Comprehensive Error Recovery**
-- ❌ **Not Implemented:** Retry logic, circuit breakers, fallback strategies
-- ✅ **Current:** Basic try-catch error handling
-- 🔮 **Future:** Add tenacity for retries, circuit breakers for external APIs
-
-### 6. **Document Versioning**
-- ❌ **Not Implemented:** Track document versions, update history
-- ✅ **Current:** Simple CRUD operations
-- 🔮 **Future:** Add version control for documents
-
-### 7. **Advanced Search**
-- ❌ **Not Implemented:** Filters, date ranges, document type filtering
-- ✅ **Current:** Pure semantic search
-- 🔮 **Future:** Add hybrid search (semantic + keyword), filters
-
-### 8. **Monitoring & Observability**
-- ❌ **Not Implemented:** Prometheus metrics, Grafana dashboards, distributed tracing
-- ✅ **Current:** Basic logging
-- 🔮 **Future:** Add full observability stack
+- **Backend**: FastAPI (Python 3.9+)
+- **Vector Database**: ChromaDB
+- **AI Models**: OpenAI GPT-5-Mini, text-embedding-3-small
+- **Frontend**: Vanilla JavaScript with modern UI
+- **Storage**: File-based with JSON sessions
 
 ---
 
-## 🚀 How to Run the System
+## Key Features
 
-### Prerequisites
-- Python 3.9 or higher
-- OpenAI API key
-- 2GB free disk space
+### 🎯 Core Capabilities
 
-### Option 1: Quick Start (Recommended)
+| Feature | Description |
+|---------|-------------|
+| **Document Processing** | Upload and process PDF, TXT, DOCX files with automatic chunking |
+| **Semantic Search** | Vector-based similarity search using OpenAI embeddings |
+| **AI Answers** | GPT-5-Mini powered responses with source citations |
+| **Confidence Scoring** | 0.0-1.0 confidence scale for answer reliability |
+| **Session Management** | Organize conversations with persistent history |
+
+### ⚡ Advanced Features
+
+| Feature | Description |
+|---------|-------------|
+| **Auto-Enrichment** | Automatically fetches missing information from trusted sources |
+| **Multi-Document Upload** | Batch upload with progress tracking |
+| **Document Management** | View, search, and delete documents via modal interface |
+| **Source Attribution** | Track both uploaded documents and external sources |
+| **Web Search Integration** | Integrated into auto-enrichment for comprehensive answers |
+
+### 🎨 User Experience
+
+- **Claude-Style Chat Interface** - Modern, gradient-based UI with smooth animations
+- **Real-Time Feedback** - Confidence badges, web search indicators, typing animations
+- **Responsive Design** - Works seamlessly on desktop and mobile
+- **Dark Theme** - Easy on the eyes with glassmorphism effects
+
+---
+
+## Quick Start
+
+Get up and running in 5 minutes:
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/RAG_1.git
-cd RAG_1
-
-# 2. Run setup script
-chmod +x setup.sh
-./setup.sh
-
-# 3. Configure environment
-nano .env
-# Add your OpenAI API key:
-# OPENAI_API_KEY=sk-your-key-here
-
-# 4. Run the application
-chmod +x run.sh
-./run.sh
-
-# 5. Open in browser
-# Navigate to: http://localhost:8000
-```
-
-### Option 2: Manual Setup
-
-```bash
-# 1. Clone repository
-git clone https://github.com/YOUR_USERNAME/RAG_1.git
-cd RAG_1
+git clone https://github.com/suprabathremitly/RAG.git
+cd RAG
 
 # 2. Create virtual environment
 python3 -m venv venv
@@ -210,28 +95,510 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # 3. Install dependencies
 pip install -r requirements.txt
 
-# 4. Create .env file
+# 4. Configure environment
 cp .env.example .env
-# Edit .env and add your OPENAI_API_KEY
+# Edit .env and add your OpenAI API key
 
-# 5. Create data directories
-mkdir -p data/uploads data/chroma_db
+# 5. Start the server
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
-# 6. Run the server
+# 6. Open in browser
+# Navigate to: http://localhost:8000/chat.html
+```
+
+**That's it!** You now have a fully functional AI Knowledge Base running locally.
+
+---
+
+## Architecture
+
+### System Overview
+
+```
+┌─────────────┐
+│   User      │
+└──────┬──────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend (chat.html)                  │
+│  • Session Management  • Document Upload  • Chat UI     │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                  FastAPI Backend (routes.py)             │
+│  • REST API  • Session Manager  • Document Processor    │
+└──────────────────────────┬──────────────────────────────┘
+                           │
+       ┌───────────────────┼───────────────────┐
+       ▼                   ▼                   ▼
+┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+│  ChromaDB   │   │   OpenAI    │   │ Enrichment  │
+│  (Vectors)  │   │   (GPT-5)   │   │  (Wikipedia)│
+└─────────────┘   └─────────────┘   └─────────────┘
+```
+
+### RAG Pipeline Flow
+
+```
+1. User Query
+   ↓
+2. Embed Query (OpenAI text-embedding-3-small)
+   ↓
+3. Vector Search (ChromaDB - Top 5 similar chunks)
+   ↓
+4. Generate Answer (GPT-5-Mini with context)
+   ↓
+5. Assess Confidence (0.0 - 1.0 scale)
+   ↓
+6. Auto-Enrich? (If confidence < 0.7)
+   ├─ Yes → Fetch from Wikipedia/arXiv/PubMed
+   │         ↓
+   │      Re-generate Answer
+   │         ↓
+   └─ No  → Return Answer
+```
+
+### Key Components
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Web Server** | FastAPI | REST API, async request handling |
+| **Vector Store** | ChromaDB | Semantic search, document embeddings |
+| **LLM** | GPT-5-Mini | Answer generation, reasoning |
+| **Embeddings** | text-embedding-3-small | Document and query vectorization |
+| **Session Store** | JSON Files | Conversation persistence |
+| **Enrichment** | Wikipedia API, arXiv, PubMed | External knowledge sources |
+
+### Design Principles
+
+1. **Modular Architecture** - Separation of concerns with service-based design
+2. **Async Processing** - Non-blocking I/O for better performance
+3. **Type Safety** - Pydantic models for validation and documentation
+4. **Graceful Degradation** - System works even when external services fail
+5. **Cost Optimization** - Auto-enrichment only when needed (confidence < 0.7)
+
+---
+
+## Installation
+
+### Prerequisites
+
+- **Python**: 3.9 or higher
+- **OpenAI API Key**: Get one from [OpenAI Platform](https://platform.openai.com/)
+- **Disk Space**: 2GB minimum for dependencies and data
+- **RAM**: 4GB minimum recommended
+
+### Step-by-Step Installation
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/suprabathremitly/RAG.git
+cd RAG
+```
+
+#### 2. Create Virtual Environment
+
+```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+# On macOS/Linux:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+```
+
+#### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+**Dependencies include:**
+- `fastapi` - Web framework
+- `uvicorn` - ASGI server
+- `langchain` - LLM framework
+- `chromadb` - Vector database
+- `openai` - OpenAI API client
+- `pypdf` - PDF processing
+- `python-docx` - DOCX processing
+- `pydantic-settings` - Configuration management
+
+#### 4. Configure Environment
+
+```bash
+# Copy example configuration
+cp .env.example .env
+
+# Edit .env file
+nano .env  # or use your preferred editor
+```
+
+**Required configuration:**
+
+```bash
+# OpenAI API Configuration
+OPENAI_API_KEY=sk-your-actual-api-key-here
+
+# LLM Configuration
+LLM_MODEL=gpt-5-mini-2025-08-07
+LLM_TEMPERATURE=0.1
+MAX_TOKENS=2000
+
+# Vector Store Configuration
+CHROMA_PERSIST_DIRECTORY=./data/chroma_db
+
+# Document Storage
+UPLOAD_DIRECTORY=./data/uploads
+
+# RAG Configuration
+CHUNK_SIZE=1000
+CHUNK_OVERLAP=200
+TOP_K_RESULTS=5
+CONFIDENCE_THRESHOLD=0.7
+```
+
+#### 5. Create Data Directories
+
+```bash
+mkdir -p data/uploads data/chroma_db data/sessions
+```
+
+#### 6. Start the Server
+
+```bash
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Option 3: Docker (Coming Soon)
+**Server will start at:**
+- **Chat Interface**: http://localhost:8000/chat.html
+- **API Documentation**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/api/health
+
+### Verification
+
+Check if the server is running correctly:
 
 ```bash
-docker-compose up -d
+# Test health endpoint
+curl http://localhost:8000/api/health
+
+# Expected response:
+# {"status":"healthy","version":"2.1.0","vector_store_status":"healthy","documents_count":0}
 ```
 
 ---
 
-## 🧪 How to Test the System
+## Configuration
 
-### 1. Run Unit Tests
+### Environment Variables
+
+All configuration is managed through the `.env` file. Here's a complete reference:
+
+#### OpenAI Configuration
+
+```bash
+# Your OpenAI API key (required)
+OPENAI_API_KEY=sk-your-key-here
+```
+
+#### LLM Configuration
+
+```bash
+# Model selection (recommended: gpt-5-mini-2025-08-07)
+LLM_MODEL=gpt-5-mini-2025-08-07
+
+# Temperature (0.0 = deterministic, 1.0 = creative)
+LLM_TEMPERATURE=0.1
+
+# Maximum tokens in response
+MAX_TOKENS=2000
+```
+
+**Model Options:**
+- `gpt-5-mini-2025-08-07` - **Recommended** - Fast, cost-effective, optimized for chat
+- `gpt-4-turbo-preview` - More powerful, higher cost
+- `gpt-4o` - Latest, balanced performance
+
+See [MODEL_UPDATE.md](MODEL_UPDATE.md) for detailed model comparison.
+
+#### Storage Configuration
+
+```bash
+# Vector database directory
+CHROMA_PERSIST_DIRECTORY=./data/chroma_db
+
+# Uploaded documents directory
+UPLOAD_DIRECTORY=./data/uploads
+```
+
+#### RAG Configuration
+
+```bash
+# Document chunk size (characters)
+CHUNK_SIZE=1000
+
+# Overlap between chunks (characters)
+CHUNK_OVERLAP=200
+
+# Number of similar chunks to retrieve
+TOP_K_RESULTS=5
+
+# Confidence threshold for auto-enrichment (0.0-1.0)
+CONFIDENCE_THRESHOLD=0.7
+```
+
+#### API Configuration
+
+```bash
+# Server host
+API_HOST=0.0.0.0
+
+# Server port
+API_PORT=8000
+```
+
+### Advanced Configuration
+
+For production deployments, consider:
+
+- **Increase `MAX_TOKENS`** for longer responses (default: 2000)
+- **Adjust `CONFIDENCE_THRESHOLD`** to control auto-enrichment frequency (default: 0.7)
+- **Modify `TOP_K_RESULTS`** for more/fewer context chunks (default: 5)
+- **Change `CHUNK_SIZE`** based on document type (default: 1000)
+
+---
+
+## Usage
+
+### Web Interface
+
+#### 1. Access the Chat Interface
+
+Open your browser and navigate to:
+```
+http://localhost:8000/chat.html
+```
+
+#### 2. Create a New Session
+
+- Click **"+ New Chat"** in the sidebar
+- A new conversation session will be created
+- Each session maintains its own conversation history
+
+#### 3. Upload Documents
+
+**Single Upload:**
+1. Click **"📤 Upload Documents"** in the sidebar
+2. Select a file (PDF, TXT, or DOCX)
+3. Click **"Upload"**
+4. Wait for processing confirmation
+
+**Multi-Upload:**
+1. Click **"📤 Upload Documents"**
+2. Select multiple files (Ctrl/Cmd + Click)
+3. Click **"Upload"**
+4. Track progress for each file
+
+#### 4. Ask Questions
+
+1. Type your question in the input box
+2. Press **Enter** or click **Send**
+3. View the AI-generated answer with:
+   - **Confidence badge** (High/Medium/Low)
+   - **Source citations** (documents or external sources)
+   - **Web search indicator** (if auto-enrichment was used)
+
+#### 5. Manage Documents
+
+1. Click **"📄 View Documents"** in the sidebar
+2. Browse your uploaded documents
+3. View details: filename, size, chunks, upload date
+4. Delete documents with confirmation
+
+#### 6. Switch Between Sessions
+
+- Click on any session in the sidebar
+- View conversation history
+- Continue previous conversations
+
+### Auto-Enrichment
+
+The system automatically enriches answers when:
+- Confidence score is below 0.7
+- Your documents don't contain sufficient information
+
+**Enrichment Sources:**
+1. **Wikipedia** - General knowledge
+2. **arXiv** - Academic papers
+3. **PubMed** - Medical research
+
+**Example:**
+```
+You: "What is quantum computing?"
+(If not in your documents)
+→ System fetches from Wikipedia
+→ Adds to knowledge base
+→ Provides comprehensive answer
+```
+
+### Command Line Usage
+
+#### Upload Document via API
+
+```bash
+curl -X POST "http://localhost:8000/api/documents/upload-multiple" \
+  -F "files=@document1.pdf" \
+  -F "files=@document2.txt"
+```
+
+#### Send Chat Message
+
+```bash
+curl -X POST "http://localhost:8000/api/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_id": "your-session-id",
+    "message": "What is in my documents?",
+    "enable_auto_enrichment": true
+  }'
+```
+
+#### List Documents
+
+```bash
+curl http://localhost:8000/api/documents
+```
+
+#### Health Check
+
+```bash
+curl http://localhost:8000/api/health
+```
+
+---
+
+## API Reference
+
+### Base URL
+
+```
+http://localhost:8000
+```
+
+### Endpoints
+
+#### Session Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/sessions` | Create new session |
+| `GET` | `/api/sessions` | List all sessions |
+| `GET` | `/api/sessions/{id}` | Get session details |
+| `GET` | `/api/sessions/{id}/messages` | Get conversation history |
+| `DELETE` | `/api/sessions/{id}` | Delete session |
+
+#### Chat
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/chat` | Send message and get AI response |
+
+**Request Body:**
+```json
+{
+  "session_id": "string",
+  "message": "string",
+  "enable_auto_enrichment": true
+}
+```
+
+**Response:**
+```json
+{
+  "session_id": "string",
+  "message": {
+    "role": "assistant",
+    "content": "string",
+    "timestamp": "2025-10-07T20:00:00",
+    "sources": [...],
+    "confidence": 0.95,
+    "web_search_used": false
+  }
+}
+```
+
+#### Document Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/documents/upload-multiple` | Upload multiple documents |
+| `GET` | `/api/documents` | List all documents |
+| `GET` | `/api/documents/{id}` | Get document details |
+| `DELETE` | `/api/documents/{id}` | Delete document |
+
+#### System
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/health` | Health check |
+| `GET` | `/docs` | Interactive API documentation (Swagger) |
+| `GET` | `/` | Legacy web UI |
+| `GET` | `/chat.html` | Modern chat interface |
+
+### Interactive Documentation
+
+Visit http://localhost:8000/docs for full interactive API documentation with:
+- Request/response schemas
+- Try-it-out functionality
+- Authentication details
+- Example requests
+
+---
+
+## Development
+
+### Project Structure
+
+```
+RAG/
+├── app/
+│   ├── main.py                      # FastAPI application entry point
+│   ├── config.py                    # Configuration management
+│   ├── models/
+│   │   └── schemas.py               # Pydantic models and schemas
+│   ├── services/
+│   │   ├── document_processor.py    # Document parsing and chunking
+│   │   ├── vector_store.py          # ChromaDB vector operations
+│   │   ├── rag_pipeline.py          # RAG orchestration
+│   │   ├── enrichment_engine.py     # External source enrichment
+│   │   └── session_manager.py       # Session management
+│   └── api/
+│       └── routes.py                # API endpoint definitions
+├── frontend/
+│   ├── chat.html                    # Modern chat interface
+│   ├── chat.js                      # Chat interface logic
+│   ├── index.html                   # Legacy web UI
+│   └── app.js                       # Legacy UI logic
+├── data/
+│   ├── uploads/                     # Uploaded documents storage
+│   ├── chroma_db/                   # Vector database persistence
+│   └── sessions/                    # Session data (JSON files)
+├── tests/                           # Test suite (if available)
+├── .env                             # Environment configuration (not in git)
+├── .env.example                     # Example configuration
+├── requirements.txt                 # Python dependencies
+├── CHANGELOG_V2.1.md               # Version 2.1 changelog
+├── MODEL_UPDATE.md                  # Model configuration guide
+└── README.md                        # This file
+```
+
+### Running Tests
 
 ```bash
 # Activate virtual environment
@@ -243,207 +610,336 @@ pytest
 # Run with coverage
 pytest --cov=app --cov-report=html
 
-# Run specific test file
+# Run specific test
 pytest tests/test_document_processor.py -v
 ```
 
-### 2. Run API Tests
+### Code Style
+
+This project follows:
+- **PEP 8** for Python code style
+- **Type hints** for function signatures
+- **Docstrings** for classes and functions
+- **Pydantic models** for data validation
+
+### Adding New Features
+
+1. **Create a new service** in `app/services/`
+2. **Define schemas** in `app/models/schemas.py`
+3. **Add API endpoints** in `app/api/routes.py`
+4. **Update frontend** in `frontend/chat.js`
+5. **Write tests** in `tests/`
+6. **Update documentation** in README.md
+---
+
+## Deployment
+
+### Production Considerations
+
+#### 1. Environment Setup
 
 ```bash
-# Test document upload
-python examples/test_api.py
+# Use production ASGI server
+pip install gunicorn
 
-# Or use curl
-curl -X POST "http://localhost:8000/api/upload" \
-  -F "file=@examples/sample_document.txt"
+# Run with multiple workers
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
-### 3. Manual Testing Workflow
+#### 2. Security
 
-#### Step 1: Upload Documents
-1. Open http://localhost:8000
-2. Click "Choose File" and select a PDF/TXT/DOCX
-3. Click "Upload Document"
-4. Verify document appears in the list
+- **API Key Management**: Use environment variables, never commit `.env`
+- **CORS Configuration**: Update `app/main.py` for production domains
+- **HTTPS**: Use reverse proxy (nginx) with SSL certificates
+- **Rate Limiting**: Implement rate limiting for API endpoints
 
-#### Step 2: Test Search (Document-Based)
-1. Enter query: "What is in my documents?"
-2. Click "Search"
-3. Verify:
-   - Answer is generated
-   - Confidence score is displayed
-   - Sources show your uploaded documents
-   - No auto-enrichment triggered
+#### 3. Scaling
 
-#### Step 3: Test Auto-Enrichment
-1. Enter query: "Who is Albert Einstein?"
-2. Click "Search"
-3. Verify:
-   - Answer is generated
-   - Auto-enrichment notification appears
-   - External sources (Wikipedia) are shown
-   - Enrichment suggestions display
+**Horizontal Scaling:**
+- Deploy multiple instances behind a load balancer
+- Use shared storage for `data/` directory (S3, NFS)
+- Consider managed vector database (Pinecone, Weaviate)
 
-#### Step 4: Test Rating System
-1. After getting an answer, click on stars (1-5)
-2. Verify "Thank you for your feedback!" message
-3. Check `data/ratings.jsonl` for saved rating
+**Vertical Scaling:**
+- Increase server resources (CPU, RAM)
+- Optimize `CHUNK_SIZE` and `TOP_K_RESULTS`
+- Use faster embedding models
 
-#### Step 5: Test Edge Cases
-- **Empty query:** Should show validation error
-- **No documents:** Should gracefully handle and suggest enrichment
-- **Irrelevant documents:** Should filter and use only relevant ones
-
-### 4. API Documentation
-
-Visit http://localhost:8000/docs for interactive API documentation (Swagger UI)
-
-### 5. Test Coverage
-
-Current test coverage: **85%+**
+#### 4. Monitoring
 
 ```bash
-# Generate coverage report
-pytest --cov=app --cov-report=term-missing
+# Add logging
+import logging
+logging.basicConfig(level=logging.INFO)
+
+# Monitor endpoints
+# - Response times
+# - Error rates
+# - API usage
+# - Document count
 ```
 
----
-
-## 📊 API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Web UI |
-| `POST` | `/api/upload` | Upload document |
-| `POST` | `/api/search` | Search knowledge base |
-| `GET` | `/api/documents` | List all documents |
-| `DELETE` | `/api/documents/{id}` | Delete document |
-| `POST` | `/api/rate` | Rate an answer |
-| `GET` | `/api/ratings/statistics` | Get rating stats |
-| `GET` | `/health` | Health check |
-| `GET` | `/docs` | API documentation |
-
----
-
-## 📁 Project Structure
-
-```
-RAG_1/
-├── app/
-│   ├── main.py                 # FastAPI application
-│   ├── config.py               # Configuration
-│   ├── models/
-│   │   └── schemas.py          # Pydantic models
-│   ├── services/
-│   │   ├── document_processor.py
-│   │   ├── vector_store.py
-│   │   ├── rag_pipeline.py
-│   │   ├── enrichment_engine.py
-│   │   └── rating_service.py
-│   └── api/
-│       └── routes.py           # API endpoints
-├── frontend/
-│   ├── index.html              # Web UI
-│   └── app.js                  # Frontend logic
-├── tests/
-│   ├── conftest.py
-│   ├── test_document_processor.py
-│   └── test_api.py
-├── data/
-│   ├── uploads/                # Uploaded documents
-│   ├── chroma_db/              # Vector database
-│   └── ratings.jsonl           # User ratings
-├── examples/
-│   ├── sample_document.txt
-│   └── test_api.py
-├── requirements.txt
-├── setup.sh
-├── run.sh
-├── .env.example
-└── README.md
-```
-
----
-
-## 🔧 Configuration
-
-Edit `.env` file:
+#### 5. Backup
 
 ```bash
-# Required
-OPENAI_API_KEY=sk-your-key-here
+# Backup vector database
+tar -czf chroma_backup.tar.gz data/chroma_db/
 
-# Optional (defaults shown)
-EMBEDDING_MODEL=text-embedding-3-small
-LLM_MODEL=gpt-4
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
-TOP_K_RESULTS=5
-CONFIDENCE_THRESHOLD=0.7
+# Backup documents
+tar -czf uploads_backup.tar.gz data/uploads/
+
+# Backup sessions
+tar -czf sessions_backup.tar.gz data/sessions/
 ```
----
 
-## 📚 Documentation
+### Docker Deployment (Coming Soon)
 
-- **[INDEX.md](INDEX.md)** - Documentation navigation
-- **[QUICKSTART.md](QUICKSTART.md)** - 5-minute setup guide
-- **[USAGE.md](USAGE.md)** - Comprehensive usage guide
-- **[PROJECT_OVERVIEW.md](PROJECT_OVERVIEW.md)** - Architecture details
-- **[FEATURES.md](FEATURES.md)** - Feature checklist
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Deployment guide
-- **[SUMMARY.md](SUMMARY.md)** - Project summary
+```dockerfile
+FROM python:3.9-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
 
----
+### Cloud Deployment
 
-## 🎯 High Marks Criteria Met
-
-✅ **Structured Output** - JSON with answer, confidence, missing_info, sources
-✅ **Graceful Handling** - Empty knowledge base, irrelevant documents, errors
-✅ **Completeness Detection** - Confidence scoring + binary flag + missing info
-✅ **Enrichment Suggestions** - Multiple types, priorities, auto-enrichment
-
----
-
-## 🌟 Innovation Highlights
-
-1. **Self-Assessing AI** - LLM evaluates its own completeness
-2. **Intelligent Enrichment** - Automatic knowledge gap filling
-3. **Multi-Source Knowledge** - Combines documents + external sources
-4. **User Feedback Loop** - Rating system for improvement
-5. **Production-Ready** - Tests, docs, deployment guides
+**Recommended Platforms:**
+- **AWS**: EC2 + S3 + RDS
+- **Google Cloud**: Cloud Run + Cloud Storage
+- **Azure**: App Service + Blob Storage
+- **Heroku**: Easy deployment with buildpacks
 
 ---
 
-## 🤝 Contributing
+## Documentation
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+### Available Documentation
 
----
+| Document | Description |
+|----------|-------------|
+| [README.md](README.md) | This file - comprehensive overview |
+| [CHANGELOG_V2.1.md](CHANGELOG_V2.1.md) | Version 2.1 features and changes |
+| [MODEL_UPDATE.md](MODEL_UPDATE.md) | Model configuration and comparison |
+| `.env.example` | Configuration template |
 
-## 📄 License
+### Additional Resources
 
-MIT License - see LICENSE file for details
-
----
-
-## 🙏 Acknowledgments
-
-- OpenAI for GPT-4 and embeddings
-- ChromaDB for vector storage
-- FastAPI for the excellent web framework
-- The open-source community
+- **API Documentation**: http://localhost:8000/docs (when server is running)
+- **GitHub Repository**: https://github.com/suprabathremitly/RAG
+- **OpenAI Documentation**: https://platform.openai.com/docs
 
 ---
 
-## 📧 Contact
+## Troubleshooting
 
-For questions or feedback, please open an issue on GitHub.
+### Common Issues
+
+#### 1. Server Won't Start
+
+```bash
+# Check if port 8000 is in use
+lsof -i :8000
+
+# Kill existing process
+kill -9 <PID>
+
+# Or use different port
+python -m uvicorn app.main:app --port 8001
+```
+
+#### 2. OpenAI API Errors
+
+```bash
+# Verify API key
+echo $OPENAI_API_KEY
+
+# Check .env file
+cat .env | grep OPENAI_API_KEY
+
+# Test API key
+curl https://api.openai.com/v1/models \
+  -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+#### 3. Document Upload Fails
+
+- **Check file size**: Maximum 10MB per file
+- **Check file format**: Only PDF, TXT, DOCX supported
+- **Check disk space**: Ensure sufficient space in `data/uploads/`
+- **Check permissions**: Ensure write access to `data/` directory
+
+#### 4. Vector Search Returns No Results
+
+```bash
+# Check if documents are indexed
+curl http://localhost:8000/api/documents
+
+# Verify ChromaDB
+ls -la data/chroma_db/
+
+# Re-upload documents if needed
+```
+
+#### 5. Auto-Enrichment Not Working
+
+- **Check confidence threshold**: Default is 0.7
+- **Verify internet connection**: Required for Wikipedia, arXiv, PubMed
+- **Check API rate limits**: OpenAI has rate limits
+- **Enable in request**: Ensure `enable_auto_enrichment: true`
+
+### Getting Help
+
+1. **Check logs**: Server logs show detailed error messages
+2. **Review documentation**: See [CHANGELOG_V2.1.md](CHANGELOG_V2.1.md)
+3. **Open an issue**: https://github.com/suprabathremitly/RAG/issues
+4. **Check API docs**: http://localhost:8000/docs
 
 ---
 
-**Built with ❤️ in 24 hours**
+## Performance Optimization
+
+### Tips for Better Performance
+
+1. **Optimize Chunk Size**
+   - Smaller chunks (500-800): Better for precise answers
+   - Larger chunks (1000-1500): Better for context
+
+2. **Adjust Top-K Results**
+   - Fewer results (3-5): Faster, less context
+   - More results (5-10): Slower, more context
+
+3. **Model Selection**
+   - `gpt-5-mini`: Fast, cost-effective (recommended)
+   - `gpt-4-turbo`: More powerful, slower, expensive
+   - `gpt-4o`: Balanced performance
+
+4. **Caching**
+   - ChromaDB caches embeddings automatically
+   - Consider Redis for query caching in production
+
+5. **Batch Processing**
+   - Use multi-document upload for efficiency
+   - Process documents during off-peak hours
+
+---
+
+## Contributing
+
+We welcome contributions! Here's how you can help:
+
+### Ways to Contribute
+
+1. **Report Bugs**: Open an issue with detailed description
+2. **Suggest Features**: Share your ideas in issues
+3. **Improve Documentation**: Fix typos, add examples
+4. **Submit Code**: Create pull requests with new features
+5. **Share Feedback**: Let us know how you're using the system
+
+### Development Workflow
+
+```bash
+# 1. Fork the repository
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/RAG.git
+
+# 3. Create a feature branch
+git checkout -b feature/your-feature-name
+
+# 4. Make your changes
+# 5. Test your changes
+pytest
+
+# 6. Commit with clear message
+git commit -m "Add: your feature description"
+
+# 7. Push to your fork
+git push origin feature/your-feature-name
+
+# 8. Open a pull request
+```
+
+### Code Guidelines
+
+- Follow PEP 8 style guide
+- Add type hints to functions
+- Write docstrings for classes and methods
+- Include tests for new features
+- Update documentation as needed
+
+---
+
+## License
+
+This project is licensed under the **MIT License**.
+
+```
+MIT License
+
+Copyright (c) 2025 AI Knowledge Base
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## Acknowledgments
+
+This project is built with excellent open-source technologies:
+
+- **[OpenAI](https://openai.com/)** - GPT models and embeddings
+- **[FastAPI](https://fastapi.tiangolo.com/)** - Modern web framework
+- **[ChromaDB](https://www.trychroma.com/)** - Vector database
+- **[LangChain](https://www.langchain.com/)** - LLM framework
+- **[Uvicorn](https://www.uvicorn.org/)** - ASGI server
+
+Special thanks to the open-source community for making this possible.
+
+---
+
+## Contact & Support
+
+- **GitHub Repository**: https://github.com/suprabathremitly/RAG
+- **Issues**: https://github.com/suprabathremitly/RAG/issues
+- **Discussions**: https://github.com/suprabathremitly/RAG/discussions
+
+For questions, feedback, or support, please open an issue on GitHub.
+
+---
+
+## Version History
+
+- **v2.1.0** (Current) - Simplified auto-enrichment, document management, GPT-5-Mini support
+- **v2.0.0** - Session management, multi-document upload, Claude-style chat interface
+- **v1.0.0** - Initial release with basic RAG functionality
+
+See [CHANGELOG_V2.1.md](CHANGELOG_V2.1.md) for detailed version history.
+
+---
+
+<div align="center">
+
+**⭐ Star this repository if you find it helpful!**
+
+**Built with ❤️ using AI and modern web technologies**
+
+[Report Bug](https://github.com/suprabathremitly/RAG/issues) · [Request Feature](https://github.com/suprabathremitly/RAG/issues) · [Documentation](https://github.com/suprabathremitly/RAG)
+
+</div>

@@ -436,7 +436,7 @@ async def upload_multiple_documents(files: List[UploadFile] = File(...)):
             content = await file.read()
 
             # Process document
-            result = await document_processor.process_document(
+            result = await document_processor.process_upload(
                 file_content=content,
                 filename=file.filename
             )

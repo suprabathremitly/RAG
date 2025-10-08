@@ -5,6 +5,13 @@ from datetime import datetime
 from enum import Enum
 
 
+class MessageRole(str, Enum):
+    """Message role in chat."""
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
+
+
 class EnrichmentType(str, Enum):
     """Types of enrichment suggestions."""
     DOCUMENT = "document"
@@ -102,4 +109,49 @@ class HealthResponse(BaseModel):
     version: str = "1.0.0"
     vector_store_status: str
     documents_count: int
+
+
+# ============================================================================
+# CHAT & SESSION MODELS (V2.0)
+# ============================================================================
+
+class ChatMessage(BaseModel):
+    """A single chat message."""
+    role: MessageRole
+    content: str
+    timestamp: datetime
+    sources: List[SourceReference] = Field(default_factory=list)
+    confidence: Optional[float] = None
+    web_search_used: bool = False
+
+
+class SessionResponse(BaseModel):
+    """Response model for session information."""
+    session_id: str
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    message_count: int
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat interaction."""
+    session_id: str
+    message: str = Field(..., min_length=1, max_length=2000)
+    enable_web_search: bool = Field(default=True)
+    enable_auto_enrichment: bool = Field(default=True)
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat interaction."""
+    session_id: str
+    message: ChatMessage
+
+
+class MultiDocumentUploadResponse(BaseModel):
+    """Response model for multi-document upload."""
+    successful_uploads: List[DocumentUploadResponse]
+    failed_uploads: List[Dict[str, str]]
+    total_uploaded: int
+    total_failed: int
 

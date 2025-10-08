@@ -11,13 +11,19 @@ from app.models.schemas import (
     RatingResponse,
     DocumentListResponse,
     DocumentInfo,
-    HealthResponse
+    HealthResponse,
+    ChatRequest,
+    ChatResponse,
+    SessionResponse,
+    MessageRole,
+    MultiDocumentUploadResponse
 )
 from app.services.document_processor import document_processor
 from app.services.vector_store import vector_store_service
 from app.services.rag_pipeline import rag_pipeline
 from app.services.enrichment_engine import enrichment_engine
 from app.services.rating_service import rating_service
+from app.services.session_manager import session_manager
 
 logger = logging.getLogger(__name__)
 
@@ -232,4 +238,234 @@ async def get_rating_statistics():
 async def get_enrichment_capabilities():
     """Get available auto-enrichment capabilities."""
     return enrichment_engine.get_enrichment_capabilities()
+
+
+# ============================================================================
+# SESSION ENDPOINTS (V2.0)
+# ============================================================================
+
+@router.post("/sessions", response_model=SessionResponse)
+async def create_session(name: str = None):
+    """Create a new chat session."""
+    try:
+        session_id = session_manager.create_session(name)
+        session = session_manager.get_session(session_id)
+
+        return SessionResponse(
+            session_id=session["session_id"],
+            name=session["name"],
+            created_at=session["created_at"],
+            updated_at=session["updated_at"],
+            message_count=len(session.get("messages", []))
+        )
+    except Exception as e:
+        logger.error(f"Error creating session: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create session"
+        )
+
+
+@router.get("/sessions", response_model=List[SessionResponse])
+async def list_sessions():
+    """List all chat sessions."""
+    try:
+        return session_manager.list_sessions()
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list sessions"
+        )
+
+
+@router.get("/sessions/{session_id}")
+async def get_session(session_id: str):
+    """Get a specific session."""
+    try:
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+
+        return SessionResponse(
+            session_id=session["session_id"],
+            name=session["name"],
+            created_at=session["created_at"],
+            updated_at=session["updated_at"],
+            message_count=len(session.get("messages", []))
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get session"
+        )
+
+
+@router.get("/sessions/{session_id}/messages")
+async def get_session_messages(session_id: str, limit: int = None):
+    """Get messages from a session."""
+    try:
+        messages = session_manager.get_conversation_history(session_id, limit)
+        return {"session_id": session_id, "messages": messages}
+    except Exception as e:
+        logger.error(f"Error getting session messages: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get session messages"
+        )
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(session_id: str):
+    """Delete a chat session."""
+    try:
+        deleted = session_manager.delete_session(session_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+
+        return {"message": "Session deleted successfully", "session_id": session_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting session: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete session"
+        )
+
+
+# ============================================================================
+# CHAT ENDPOINTS (V2.0)
+# ============================================================================
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """
+    Chat-style interaction with the knowledge base.
+
+    Features:
+    - Session-based conversation history
+    - Auto-enrichment with web search
+    - Context-aware responses
+    """
+    try:
+        # Verify session exists
+        session = session_manager.get_session(request.session_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+
+        # Add user message to session
+        session_manager.add_message(
+            session_id=request.session_id,
+            role=MessageRole.USER,
+            content=request.message
+        )
+
+        # Process query with RAG pipeline (includes auto-enrichment with web search)
+        search_response = await rag_pipeline.search_and_answer(
+            query=request.message,
+            top_k=5,
+            enable_auto_enrichment=request.enable_auto_enrichment
+        )
+
+        # Check if auto-enrichment was applied (web search is now part of auto-enrichment)
+        web_search_used = search_response.auto_enrichment_applied
+
+        # Add assistant message to session
+        assistant_message = session_manager.add_message(
+            session_id=request.session_id,
+            role=MessageRole.ASSISTANT,
+            content=search_response.answer,
+            sources=search_response.sources,
+            confidence=search_response.confidence,
+            web_search_used=web_search_used
+        )
+
+        return ChatResponse(
+            session_id=request.session_id,
+            message=assistant_message
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing chat: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to process chat message: {str(e)}"
+        )
+
+
+# ============================================================================
+# MULTI-DOCUMENT UPLOAD (V2.0)
+# ============================================================================
+
+@router.post("/documents/upload-multiple", response_model=MultiDocumentUploadResponse)
+async def upload_multiple_documents(files: List[UploadFile] = File(...)):
+    """
+    Upload multiple documents at once.
+
+    Returns success and failure lists.
+    """
+    successful_uploads = []
+    failed_uploads = []
+
+    for file in files:
+        try:
+            # Validate file format
+            if not document_processor.is_supported_format(file.filename):
+                failed_uploads.append({
+                    "filename": file.filename,
+                    "error": f"Unsupported file format. Supported: {', '.join(document_processor.SUPPORTED_FORMATS)}"
+                })
+                continue
+
+            # Read file content
+            content = await file.read()
+
+            # Process document
+            result = await document_processor.process_document(
+                file_content=content,
+                filename=file.filename
+            )
+
+            # Add to vector store
+            vector_store_service.add_documents(
+                documents=result['chunks'],
+                document_id=result['document_id']
+            )
+
+            successful_uploads.append(DocumentUploadResponse(
+                document_id=result['document_id'],
+                filename=result['filename'],
+                file_size=result['file_size'],
+                file_type=result['file_type'],
+                chunks_created=result['chunks_count']
+            ))
+
+        except Exception as e:
+            logger.error(f"Error uploading {file.filename}: {e}")
+            failed_uploads.append({
+                "filename": file.filename,
+                "error": str(e)
+            })
+
+    return MultiDocumentUploadResponse(
+        successful_uploads=successful_uploads,
+        failed_uploads=failed_uploads,
+        total_uploaded=len(successful_uploads),
+        total_failed=len(failed_uploads)
+    )
 

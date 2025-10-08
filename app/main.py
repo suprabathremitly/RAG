@@ -51,6 +51,11 @@ async def startup_event():
     logger.info(f"Upload directory: {settings.upload_directory}")
     logger.info(f"LLM model: {settings.llm_model}")
 
+    # Create sessions directory
+    sessions_dir = Path("./data/sessions")
+    sessions_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Sessions directory: {sessions_dir}")
+
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -63,9 +68,10 @@ async def root():
     """Root endpoint."""
     return {
         "message": "AI-Powered Knowledge Base API",
-        "version": "1.0.0",
+        "version": "2.1.0",
         "docs": "/docs",
-        "health": "/api/health"
+        "health": "/api/health",
+        "chat": "/chat.html"
     }
 
 

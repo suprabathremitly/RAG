@@ -9,6 +9,7 @@ let currentQuery = null;
 document.addEventListener('DOMContentLoaded', () => {
     loadDocuments();
     checkHealth();
+    setupDragAndDrop();
 });
 
 // Check API health
@@ -22,53 +23,129 @@ async function checkHealth() {
     }
 }
 
-// Upload document
-async function uploadDocument() {
+// Upload documents (multiple files)
+async function uploadDocuments(selectedFiles = null) {
+    console.log('uploadDocuments() called');
+
     const fileInput = document.getElementById('fileInput');
-    const file = fileInput.files[0];
-    
-    if (!file) return;
-    
+    const files = selectedFiles ? Array.from(selectedFiles) : Array.from(fileInput.files);
+
+    console.log('Files selected:', files.length, files.map(f => f.name));
+
+    if (files.length === 0) {
+        console.log('No files selected, returning');
+        return;
+    }
+
+    // Show selected files
+    const selectedFilesDiv = document.getElementById('selectedFiles');
+    selectedFilesDiv.innerHTML = `📎 Selected: ${files.map(f => f.name).join(', ')}`;
+
     const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.innerHTML = '<div class="loading">⏳ Uploading and processing...</div>';
-    
+    statusDiv.innerHTML = `<div class="loading">⏳ Uploading ${files.length} file(s)...</div>`;
+
     const formData = new FormData();
-    formData.append('file', file);
-    
+    files.forEach(file => {
+        formData.append('files', file);
+        console.log('Added file to FormData:', file.name);
+    });
+
     try {
-        const response = await fetch(`${API_BASE}/documents/upload`, {
+        console.log('Sending request to:', `${API_BASE}/documents/upload-multiple`);
+
+        const response = await fetch(`${API_BASE}/documents/upload-multiple`, {
             method: 'POST',
             body: formData
         });
-        
+
+        console.log('Response status:', response.status);
+
         if (!response.ok) {
-            throw new Error('Upload failed');
+            const errorData = await response.json();
+            console.error('Upload failed:', errorData);
+            throw new Error(errorData.detail || 'Upload failed');
         }
-        
+
         const data = await response.json();
-        statusDiv.innerHTML = `
-            <div style="color: #4caf50; padding: 10px; background: #e8f5e9; border-radius: 6px;">
-                ✅ Successfully uploaded! Created ${data.chunks_created} chunks.
-            </div>
-        `;
-        
+        console.log('Upload response:', data);
+
+        // Build status message
+        let statusHTML = '';
+
+        console.log('Successful uploads:', data.successful_uploads.length);
+        console.log('Failed uploads:', data.failed_uploads.length);
+
+        if (data.successful_uploads && data.successful_uploads.length > 0) {
+            const totalChunks = data.successful_uploads.reduce((sum, doc) => sum + doc.chunks_created, 0);
+            statusHTML += `
+                <div style="color: #10b981; padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; margin-bottom: 10px;">
+                    ✅ Successfully uploaded ${data.total_uploaded} file(s)! Created ${totalChunks} chunks total.
+                    <ul style="margin-top: 8px; margin-left: 20px; font-size: 0.9em;">
+                        ${data.successful_uploads.map(doc => `
+                            <li>${doc.filename} (${doc.chunks_created} chunks)</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        if (data.failed_uploads.length > 0) {
+            statusHTML += `
+                <div style="color: #ef4444; padding: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
+                    ❌ Failed to upload ${data.total_failed} file(s):
+                    <ul style="margin-top: 8px; margin-left: 20px; font-size: 0.9em;">
+                        ${data.failed_uploads.map(fail => `
+                            <li><strong>${fail.filename}</strong>: ${fail.error}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        }
+
+        statusDiv.innerHTML = statusHTML;
+
         // Reload documents list
         loadDocuments();
-        
-        // Clear file input
+
+        // Clear file input and selected files display
         fileInput.value = '';
-        
-        // Clear status after 3 seconds
-        setTimeout(() => {
-            statusDiv.innerHTML = '';
-        }, 3000);
-        
+        selectedFilesDiv.innerHTML = '';
+
+        // Clear status after 5 seconds if all successful
+        if (data.failed_uploads.length === 0) {
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
     } catch (error) {
+        // Check if it's an API key error
+        const isApiKeyError = error.message.includes('401') ||
+                             error.message.includes('API key') ||
+                             error.message.includes('Unauthorized');
+
+        if (isApiKeyError) {
+            showApiKeyWarning();
+        }
+
         statusDiv.innerHTML = `
-            <div style="color: #f44336; padding: 10px; background: #ffebee; border-radius: 6px;">
+            <div style="color: #ef4444; padding: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px;">
                 ❌ Upload failed: ${error.message}
+                ${isApiKeyError ? `
+                    <br><small style="margin-top: 8px; display: block; opacity: 0.8;">
+                        💡 <strong>Action Required:</strong> Configure your OpenAI API key in the .env file (see SETUP_API_KEY.md)
+                    </small>
+                ` : ''}
             </div>
         `;
+    }
+}
+
+// Show API key warning banner
+function showApiKeyWarning() {
+    const warningBanner = document.getElementById('apiKeyWarning');
+    if (warningBanner) {
+        warningBanner.style.display = 'block';
     }
 }
 
@@ -350,3 +427,37 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
+// Setup drag and drop
+function setupDragAndDrop() {
+    const uploadSection = document.querySelector('.upload-section');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, () => {
+            uploadSection.style.borderColor = 'rgba(139, 92, 246, 0.8)';
+            uploadSection.style.background = 'rgba(99, 102, 241, 0.15)';
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadSection.addEventListener(eventName, () => {
+            uploadSection.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+            uploadSection.style.background = 'rgba(99, 102, 241, 0.05)';
+        }, false);
+    });
+
+    uploadSection.addEventListener('drop', (e) => {
+        const files = e.dataTransfer?.files;
+        if (files && files.length > 0) {
+            uploadDocuments(files);
+        }
+    }, false);
+}

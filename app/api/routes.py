@@ -435,24 +435,21 @@ async def upload_multiple_documents(files: List[UploadFile] = File(...)):
             # Read file content
             content = await file.read()
 
-            # Process document
-            result = await document_processor.process_upload(
+            # Process document - returns (doc_id, chunks)
+            doc_id, chunks = await document_processor.process_upload(
                 file_content=content,
                 filename=file.filename
             )
 
             # Add to vector store
-            vector_store_service.add_documents(
-                documents=result['chunks'],
-                document_id=result['document_id']
-            )
+            await vector_store_service.add_documents(chunks)
 
             successful_uploads.append(DocumentUploadResponse(
-                document_id=result['document_id'],
-                filename=result['filename'],
-                file_size=result['file_size'],
-                file_type=result['file_type'],
-                chunks_created=result['chunks_count']
+                document_id=doc_id,
+                filename=file.filename,
+                file_size=len(content),
+                file_type=file.filename.split('.')[-1],
+                chunks_created=len(chunks)
             ))
 
         except Exception as e:

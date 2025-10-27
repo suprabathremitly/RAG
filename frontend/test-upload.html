@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-File Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .upload-box {
+            border: 3px dashed #6366f1;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            background: rgba(99, 102, 241, 0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-box:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: #8b5cf6;
+        }
+        .upload-box.dragover {
+            background: rgba(139, 92, 246, 0.3);
+            border-color: #a78bfa;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        .success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+        .info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+        }
+        ul {
+            text-align: left;
+            margin-top: 10px;
+        }
+        h1 {
+            color: #8b5cf6;
+        }
+        .instructions {
+            background: rgba(99, 102, 241, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border-left: 4px solid #6366f1;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Multi-File Upload Test</h1>
+    
+    <div class="instructions">
+        <h3>How to test multi-file upload:</h3>
+        <ol>
+            <li><strong>Method 1:</strong> Click the box below and select multiple files (hold Cmd/Ctrl)</li>
+            <li><strong>Method 2:</strong> Drag and drop multiple files onto the box</li>
+        </ol>
+        <p><strong>Supported formats:</strong> PDF, TXT, DOCX</p>
+    </div>
+
+    <div class="upload-box" id="uploadBox">
+        <h2>📁 Click or Drag Files Here</h2>
+        <p>Multiple files allowed</p>
+        <input type="file" id="fileInput" multiple accept=".pdf,.txt,.docx">
+    </div>
+
+    <div id="selectedFiles" style="margin-top: 15px; color: #a1a1aa;"></div>
+    <div id="status"></div>
+
+    <script>
+        const API_BASE = '/api';
+        const uploadBox = document.getElementById('uploadBox');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+        const statusDiv = document.getElementById('status');
+
+        // Click to upload
+        uploadBox.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', () => {
+            const files = Array.from(fileInput.files);
+            if (files.length > 0) {
+                showSelectedFiles(files);
+                uploadFiles(files);
+            }
+        });
+
+        // Drag and drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadBox.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadBox.addEventListener(eventName, () => {
+                uploadBox.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadBox.addEventListener(eventName', () => {
+                uploadBox.classList.remove('dragover');
+            });
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+                showSelectedFiles(files);
+                uploadFiles(files);
+            }
+        });
+
+        function showSelectedFiles(files) {
+            selectedFilesDiv.innerHTML = `
+                <strong>📎 Selected ${files.length} file(s):</strong><br>
+                ${files.map(f => `• ${f.name} (${formatFileSize(f.size)})`).join('<br>')}
+            `;
+        }
+
+        async function uploadFiles(files) {
+            statusDiv.innerHTML = '<div class="info">⏳ Uploading ' + files.length + ' file(s)...</div>';
+
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+
+            try {
+                const response = await fetch(`${API_BASE}/documents/upload-multiple`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Upload failed');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Upload failed:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function displayResults(data) {
+            let html = '';
+
+            if (data.successful_uploads && data.successful_uploads.length > 0) {
+                const totalChunks = data.successful_uploads.reduce((sum, doc) => sum + doc.chunks_created, 0);
+                html += `
+                    <div class="success">
+                        <strong>✅ Successfully uploaded ${data.total_uploaded} file(s)!</strong><br>
+                        Created ${totalChunks} chunks total<br>
+                        <ul>
+                            ${data.successful_uploads.map(doc => `
+                                <li><strong>${doc.filename}</strong> - ${doc.chunks_created} chunks</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            if (data.failed_uploads && data.failed_uploads.length > 0) {
+                html += `
+                    <div class="error" style="margin-top: 10px;">
+                        <strong>❌ Failed to upload ${data.total_failed} file(s):</strong><br>
+                        <ul>
+                            ${data.failed_uploads.map(fail => `
+                                <li><strong>${fail.filename}</strong>: ${fail.error}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            statusDiv.innerHTML = html;
+
+            // Clear file input
+            fileInput.value = '';
+            
+            // Clear selected files after 3 seconds
+            setTimeout(() => {
+                selectedFilesDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+    </script>
+</body>
+</html>
+

@@ -396,7 +396,18 @@
                 </div>
 
                 <div class="card" style="margin-top: 20px;">
-                    <h2>📚 Documents (<span id="docCount">0</span>)</h2>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h2 style="margin: 0;">📚 Documents (<span id="docCount">0</span>)</h2>
+                        <button
+                            id="deleteAllBtn"
+                            onclick="deleteAllDocuments()"
+                            style="background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: all 0.2s;"
+                            onmouseover="this.style.background='#dc2626'"
+                            onmouseout="this.style.background='#ef4444'"
+                            title="Delete all documents">
+                            🗑️ Delete All
+                        </button>
+                    </div>
                     <div id="documentsList" class="documents-list"></div>
                 </div>
             </div>
@@ -423,6 +434,6 @@
         </div>
     </div>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>

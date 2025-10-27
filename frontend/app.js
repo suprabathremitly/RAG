@@ -190,20 +190,95 @@ async function deleteDocument(docId) {
     if (!confirm('Are you sure you want to delete this document?')) {
         return;
     }
-    
+
     try {
         const response = await fetch(`${API_BASE}/documents/${docId}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) {
             throw new Error('Delete failed');
         }
-        
+
         loadDocuments();
-        
+
     } catch (error) {
         alert('Failed to delete document: ' + error.message);
+    }
+}
+
+// Delete all documents
+async function deleteAllDocuments() {
+    const docCount = document.getElementById('docCount').textContent;
+
+    if (docCount === '0') {
+        alert('No documents to delete');
+        return;
+    }
+
+    const confirmed = confirm(
+        `⚠️ WARNING: This will permanently delete ALL ${docCount} document(s) from your knowledge base.\n\n` +
+        `This action CANNOT be undone!\n\n` +
+        `Are you absolutely sure you want to continue?`
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    // Double confirmation for safety
+    const doubleConfirm = confirm(
+        `🚨 FINAL CONFIRMATION\n\n` +
+        `You are about to delete ${docCount} document(s).\n\n` +
+        `Click OK to proceed with deletion.`
+    );
+
+    if (!doubleConfirm) {
+        return;
+    }
+
+    try {
+        console.log('Deleting all documents...');
+
+        const deleteBtn = document.getElementById('deleteAllBtn');
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '⏳ Deleting...';
+        deleteBtn.disabled = true;
+
+        const response = await fetch(`${API_BASE}/documents/all`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Delete all failed');
+        }
+
+        const data = await response.json();
+        console.log('Delete all response:', data);
+
+        // Show success message
+        alert(
+            `✅ ${data.message}\n\n` +
+            `Deleted: ${data.deleted_count} document(s)\n` +
+            (data.failed_count > 0 ? `Failed: ${data.failed_count} document(s)` : '')
+        );
+
+        // Reload documents list
+        loadDocuments();
+
+        // Reset button
+        deleteBtn.innerHTML = originalText;
+        deleteBtn.disabled = false;
+
+    } catch (error) {
+        console.error('Failed to delete all documents:', error);
+        alert('❌ Failed to delete all documents: ' + error.message);
+
+        // Reset button
+        const deleteBtn = document.getElementById('deleteAllBtn');
+        deleteBtn.innerHTML = '🗑️ Delete All';
+        deleteBtn.disabled = false;
     }
 }
 

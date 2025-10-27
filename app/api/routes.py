@@ -120,16 +120,64 @@ async def list_documents():
         )
 
 
+@router.delete("/documents/all")
+async def delete_all_documents():
+    """Delete all documents from the knowledge base."""
+    try:
+        # Get all documents
+        documents = document_processor.list_documents()
+
+        if not documents:
+            return {
+                "message": "No documents to delete",
+                "deleted_count": 0
+            }
+
+        deleted_count = 0
+        failed_deletions = []
+
+        # Delete each document
+        for doc in documents:
+            try:
+                doc_id = doc.get("document_id")
+                # Delete from vector store
+                await vector_store_service.delete_documents(doc_id)
+                # Delete file
+                document_processor.delete_document(doc_id)
+                deleted_count += 1
+            except Exception as e:
+                failed_deletions.append({
+                    "document_id": doc_id,
+                    "filename": doc.get("filename", "unknown"),
+                    "error": str(e)
+                })
+                logger.error(f"Failed to delete document {doc_id}: {str(e)}")
+
+        return {
+            "message": f"Successfully deleted {deleted_count} document(s)",
+            "deleted_count": deleted_count,
+            "failed_count": len(failed_deletions),
+            "failed_deletions": failed_deletions
+        }
+
+    except Exception as e:
+        logger.error(f"Error deleting all documents: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete all documents: {str(e)}"
+        )
+
+
 @router.delete("/documents/{document_id}")
 async def delete_document(document_id: str):
     """Delete a document from the knowledge base."""
     try:
         # Delete from vector store
         vector_deleted = await vector_store_service.delete_documents(document_id)
-        
+
         # Delete file
         file_deleted = document_processor.delete_document(document_id)
-        
+
         if not vector_deleted and not file_deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
